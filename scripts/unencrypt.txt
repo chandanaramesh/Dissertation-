@@ -1,0 +1,10 @@
+4chan.org, 8.455067000, 4han.org, 10.396288000
+reddit.com, 2.202594000
+yahoo.com, 2.675206000
+cnn.com, 4.451130000
+
+4han.org, 10.396288000
+reddit.com, 10.632002000
+yahoo.com, 10.519285000
+cnn.com, 10.492487000
+
