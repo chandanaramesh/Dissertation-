@@ -1,0 +1,152 @@
+Things to Note
+Stop the following after boot
+1) bind9 (named)
+2) systemd-resolve
+3) stubby
+
+Change /etc/resolv.conf to 
+127.0.0.1
+
+
+UNBOUND
+
+Start Unbound 
+start-stop-daemon --start --quiet --oknodo --pidfile /run/unbound.pid --startas /usr/local/sbin/unbound
+systemctl start/stop/restart/status unbound
+
+Location of Configuration file
+/usr/local/etc/unbound/unbound.conf
+
+Location of cert/pem file
+tls-ca-bundle.pem
+
+Location of original Unbound file
+/usr/local/etc/unbound/original_unbound.conf
+
+Check if unbound is running
+netstat -plantu | grep unbound
+ps -ef | grep unbound
+
+
+1.
+
+
+
+
+STUNNEL
+
+#Creating self signed certs for Stunnel
+#Create a directory 
+/etc/ssl/certs/stunnel
+
+#Creating self signed certificates for clients with no authentication
+openssl genrsa -out dns.key 1024
+openssl req -new -key dns.key -out dns.crt -x509
+#Above command creats dns.key and dns.crt
+
+#Create a Stunnel config file
+vim dnstls.conf #Can be anything
+
+#Include absolute paths of the keys generated within it
+
+'''
+[dns]
+
+#Server accepts requests from clients through 853  
+accept = 853 
+
+#Forwards the content recieved on TLS port 853 to localhost 53 (Stunnel port)
+connect = 127.0.0.1:53 
+
+cert = /etc/ssl/certs/stunnel/dns.crt
+
+key = /etc/ssl/certs/stunnel/dns.key
+
+CAfile = /etc/ssl/certs/stunnel/ca.crt
+'''
+
+#Launching Stunnel as daemon
+stunnel dns.conf
+
+#Create CA certificates required for TLS handshake
+openssl genrsa -out ca.key 1024
+openssl req -new -key ca.key -out ca.crt -x509 -extensions v3_ca
+
+#Create public key certifications
+openssl genrsa -out dns.key 1024
+openssl req -new -key dns.key -out dns.req
+openssl x509 -req -in dns.req -out dns.crt -CA ca.crt -CAkey ca.key -CAcreateserial
+
+#Ask Royal (This command was run after the above step)
+export SSL_CERT_FILE=/etc/ssl/certs/stunnel/ca.crt
+
+#Use the keys already created to generate key-pinning. Created using SHA256 (mentioned in upstream servers)
+#Create by EITHER keys OR certs
+#From keys
+openssl rsa -in dns.key -outform der -pubout | openssl dgst -sha256 -binary | openssl enc -base64
+
+#From Certificate
+openssl x509 -in dns.crt -pubkey -noout | openssl rsa -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64
+
+#Testing the configuration using getdns
+#Use 'L'-TLS, 'U'-UDP, 'T'-TCP
+getdns_query -s google.com a @34.65.232.166 -l L
+
+
+
+#Dig command to get ipv6
+dig google.com AAAA +short
+
+#Dig command to get ipv4
+dig google.com A +short
+
+UDP tests:
+1. change DNS to 34.65.232.166 in /etc/resolv.conf
+2. capture tshark on ethernet interface in both client (ETH)/server (ETH)
+
+TLS tests:
+1. change DNS to 127.0.0.1 in /etc/resolv.conf
+2. capture tshark on loopback interface in both client (LO)/server(ETH)
+
+HTTPS tests:
+1. capture POST method response to url https://dns.brokelings.com/dns-query
+curl -v "https://dns.brokelings.com/dns-query?name=facebook.com&record=A" -w "\ntotal connect: %{time_total}\n" --resolve dns.brokelings.com:443:34.65.232.166 -H "Cache-control: no-cache"
+2. capture tshark in server(ETH)
+
+Repeat for UDP, TLS, HTTPS
+Tshark - tshark -i lo -f "port 53" -n -T fields -E separator=\, -E occurrence=f -e dns.qry.type -e dns.time -e dns.resp.name
+Clean Cach - /etc/init.d/dns-clean start
+
+TEST 1: IPV4 client/server no cache
+TEST 2: IPV4 client/server with cache
+TEST 3: IPV4 client/server no cache - high resources
+TEST 4: IPV4 client/server with cache - high resources
+
+Repeat for UDP, TLS, HTTPS
+TEST 1: IPV6 client/server no cache
+TEST 2: IPV6 client/server with cache
+TEST 3: IPV6 client/server no cache - high resources
+TEST 4: IPV6 client/server with cache - high resources
+
+https://dns.brokelings.com/dns-query
+
+Steps followed while creating certificate
+ 1130  openssl genrsa -out dns.key 1024
+ 1131  openssl req -new -key dns.key -out dns.crt -x509
+ 1132  ls
+ 1133  openssl genrsa -out ca.key 1024
+ 1134  openssl req -new -key ca.key -out ca.crt -x509 -extensions v3_ca
+ 1135  openssl genrsa -out dns.key 1024
+ 1136  openssl req -new -key dns.key -out dns.req
+ 1137  openssl x509 -req -in dns.req -out dns.crt -CA ca.crt -CAkey ca.key -CAcreateserial
+ 1138  openssl rsa -in dns.key -outform der -pubout | openssl dgst -sha256 -binary | openssl enc -base64
+
+
+
+
+ 
+
+
+
+
+
