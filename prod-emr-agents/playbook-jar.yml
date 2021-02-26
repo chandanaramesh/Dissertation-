@@ -1,0 +1,10 @@
+- hosts: all
+  become: True
+  remote_user: hadoop
+  tasks:
+  
+    - name: Update zookeeper master dns
+      replace:
+        path: "/etc/hive/conf/hive-site.xml"
+        regexp: 'localhost'
+        replace: "{{ ansible_fqdn }}"
